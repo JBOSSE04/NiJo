@@ -41,6 +41,15 @@ document.addEventListener('DOMContentLoaded', () => {
     loadUserFromStorage();
     loadOrdersFromStorage();
     
+    // Ocultar preloader después de un breve delay y mostrar la página inicial
+    setTimeout(() => {
+        const preloader = document.getElementById('preloader');
+        if (preloader) {
+            preloader.style.display = 'none';
+        }
+        showHome();
+    }, 1000);
+    
     // Scroll Up Button
     const scrollUp = document.getElementById('scroll-up');
     if (scrollUp) {
@@ -75,14 +84,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // Funciones de navegación
 function showHome() {
     hideAllSections();
-    if (currentUser) {
-        // Si el usuario está logueado, mostrar solo categorías
-        document.getElementById('categories').style.display = 'block';
-    } else {
-        // Si no hay usuario logueado, mostrar hero y categorías
-        document.getElementById('hero').style.display = 'block';
-        document.getElementById('categories').style.display = 'block';
-    }
+    document.getElementById('hero').style.display = 'block';
+    document.getElementById('categories').style.display = 'block';
+    loadCategories(); // Asegurarse de que las categorías estén cargadas
 }
 
 function showCategories() {
@@ -92,7 +96,7 @@ function showCategories() {
     const categoriesSection = document.getElementById('categories');
     if (categoriesSection) {
         categoriesSection.style.display = 'block';
-        // Hacer scroll suave hasta las categorías
+        //Scroll suabe 
         setTimeout(() => {
             categoriesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 100);
@@ -186,22 +190,27 @@ function showCart() {
 function showAuth() {
     hideAllSections();
     document.getElementById('auth').style.display = 'block';
-    document.getElementById('hero').style.display = 'none';
-    document.getElementById('categories').style.display = 'none';
-    
-    // Asegurarse de que el formulario de login esté visible por defecto
-    document.getElementById('loginForm').classList.remove('hidden');
-    document.getElementById('registerForm').classList.add('hidden');
-    
-    // Actualizar las clases de las pestañas
-    const tabs = document.querySelectorAll('.auth__tab');
-    tabs.forEach(tab => {
-        if (tab.textContent === 'Iniciar Sesión') {
-            tab.classList.add('active');
-        } else {
-            tab.classList.remove('active');
-        }
-    });
+    // Mostrar el formulario de login por defecto
+    switchAuthTab('login');
+}
+
+function switchAuthTab(tab) {
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const loginTab = document.querySelector('.auth__tab:nth-child(1)');
+    const registerTab = document.querySelector('.auth__tab:nth-child(2)');
+
+    if (tab === 'login') {
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
+        loginTab.classList.add('active');
+        registerTab.classList.remove('active');
+    } else {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        loginTab.classList.remove('active');
+        registerTab.classList.add('active');
+    }
 }
 
 function hideAllSections() {
@@ -224,21 +233,19 @@ function hideAllSections() {
 
 // Funciones de carga de datos
 async function loadCategories() {
-    const categories = [
-        { id: 'camisetas', name: 'Camisetas', image: 'img/categories/camisetas.jpg' },
-        { id: 'pantalones', name: 'Pantalones', image: 'img/categories/pantalones.jpg' },
-        { id: 'zapatillas', name: 'Zapatillas', image: 'img/categories/zapatillas.jpg' }
-    ];
-
-    const categoriesContainer = document.getElementById('categoriesContainer');
-    if (!categoriesContainer) return;
-
-    categoriesContainer.innerHTML = categories.map(category => `
-        <div class="category-card" onclick="showProductsByCategory('${category.id}')">
-            <img src="${category.image}" alt="${category.name}" class="category-card__image">
-            <h3 class="category-card__title">${category.name}</h3>
-        </div>
-    `).join('');
+    try {
+        const response = await fetch(CATEGORIES_URL);
+        const allCategories = await response.json();
+        // Filtrar solo las primeras 5 categorías
+        const categories = allCategories.slice(0, 8);
+        renderCategories(categories);
+        setTimeout(() => {
+            if (preloader) preloader.style.display = 'none';
+        }, 1000);
+    } catch (error) {
+        console.error('Error loading categories:', error);
+        showNotification('Error al cargar las categorías', 'error');
+    }
 }
 
 async function loadProducts(categoryId) {
@@ -299,46 +306,95 @@ async function handleLogin(event) {
     const password = document.getElementById('loginPassword').value;
 
     try {
-        if (email === 'admin' && password === 'admin') {
+        // Caso especial para admin
+        if (email === 'admin@gmail.com' && password === 'admin') {
             currentUser = {
                 id: 0,
-                email: 'admin',
-                name: 'Administrator',
+                email: 'admin@gmail.com',
+                name: 'Admin',
                 role: 'admin'
             };
             saveUserToStorage();
             updateUserMenu();
             showNotification('Sesión iniciada correctamente', 'success');
-            
-            // Mostrar la página principal después del login
-            hideAllSections();
-            document.getElementById('hero').style.display = 'block';
-            document.getElementById('categories').style.display = 'block';
+            showHome();
             return;
         }
 
         const registeredUsers = getRegisteredUsers();
-        const user = registeredUsers.find(u => u.email === email && u.password === password);
+        console.log('Intentando iniciar sesión con:', { email, password });
+        console.log('Usuarios registrados disponibles:', registeredUsers);
+
+        if (!Array.isArray(registeredUsers) || registeredUsers.length === 0) {
+            console.error('No hay usuarios registrados o datos inválidos');
+            throw new Error('No hay usuarios registrados');
+        }
+
+        const user = registeredUsers.find(u => {
+            console.log('Comparando con usuario:', {
+                storedEmail: u.email,
+                storedPassword: u.password,
+                inputEmail: email,
+                inputPassword: password,
+                emailMatch: u.email === email,
+                passwordMatch: u.password === password
+            });
+            return u.email === email && u.password === password;
+        });
 
         if (!user) {
+            console.log('No se encontró usuario con esas credenciales');
             throw new Error('Credenciales inválidas');
         }
 
+        console.log('Usuario encontrado:', user);
         currentUser = {
-            ...user,
+            id: user.id,
+            name: user.name,
+            email: user.email,
             role: 'customer'
         };
 
         saveUserToStorage();
         updateUserMenu();
         showNotification('Sesión iniciada correctamente', 'success');
-        
-        // Mostrar la página principal después del login
-        hideAllSections();
-        document.getElementById('hero').style.display = 'block';
-        document.getElementById('categories').style.display = 'block';
+        showHome();
     } catch (error) {
+        console.error('Error de inicio de sesión:', error);
         showNotification('Error al iniciar sesión: ' + error.message, 'error');
+    }
+}
+
+function getRegisteredUsers() {
+    try {
+        const usersJson = localStorage.getItem('registeredUsers');
+        console.log('Obteniendo usuarios registrados, datos raw:', usersJson);
+        
+        if (!usersJson) {
+            console.log('No hay usuarios registrados, devolviendo array vacío');
+            return [];
+        }
+
+        const users = JSON.parse(usersJson);
+        if (!Array.isArray(users)) {
+            console.error('Los datos de usuarios no son un array:', users);
+            return [];
+        }
+
+        console.log('Usuarios registrados recuperados:', users);
+        return users;
+    } catch (error) {
+        console.error('Error al obtener usuarios registrados:', error);
+        return [];
+    }
+}
+
+function saveUserToStorage() {
+    if (currentUser) {
+        console.log('Guardando usuario actual:', currentUser);
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    } else {
+        localStorage.removeItem('currentUser');
     }
 }
 
@@ -347,139 +403,66 @@ async function handleRegister(event) {
     const name = document.getElementById('registerName').value;
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
+    const confirmPassword = document.getElementById('registerConfirmPassword').value;
 
     try {
-        const registeredUsers = getRegisteredUsers();
+        if (password !== confirmPassword) {
+            throw new Error('Las contraseñas no coinciden');
+        }
+
+        let registeredUsers = getRegisteredUsers();
+        console.log('Estado actual de usuarios antes de registrar:', registeredUsers);
         
-        // Verificar si el email ya está registrado
         if (registeredUsers.some(u => u.email === email)) {
-            throw new Error('Este email ya está registrado');
+            throw new Error('El email ya está registrado');
         }
 
         const newUser = {
-            id: Date.now(), // Usar timestamp como ID único
-            name,
-            email,
-            password,
+            id: Date.now(),
+            name: name,
+            email: email,
+            password: password,
             role: 'customer'
         };
 
-        // Guardar el nuevo usuario
         registeredUsers.push(newUser);
         saveRegisteredUsers(registeredUsers);
+        console.log('Usuario registrado exitosamente:', newUser);
+        console.log('Verificando registro - usuarios actuales:', getRegisteredUsers());
+
+        currentUser = {
+            id: newUser.id,
+            name: newUser.name,
+            email: newUser.email,
+            role: newUser.role
+        };
         
-        // Enviar email de bienvenida
-        // await sendWelcomeEmail(email, name);
-        
-        showNotification('Registro exitoso. Por favor, inicia sesión.', 'success');
-        switchAuthTab('login');
-        
-        // Prellenar el formulario de login
-        document.getElementById('loginEmail').value = email;
-    } catch (error) {
-        showNotification('Error en el registro: ' + error.message, 'error');
-    }
-}
-
-function logout() {
-    currentUser = null;
-    localStorage.removeItem('currentUser');
-    updateUserMenu();
-    showNotification('Sesión cerrada correctamente', 'success');
-    
-    // Volver a la página de inicio después del logout
-    hideAllSections();
-    document.getElementById('hero').style.display = 'block';
-    document.getElementById('categories').style.display = 'block';
-}
-
-function updateUserMenu() {
-    const userMenuContainer = document.getElementById('userMenuContainer');
-    if (!userMenuContainer) return;
-
-    if (currentUser) {
-        userMenuContainer.innerHTML = `
-            <div class="nav__user">
-                <span onclick="toggleDropdown(event)">${currentUser.name} ▼</span>
-                <div class="dropdown" id="userDropdown">
-                    ${currentUser.role === 'admin' ? 
-                        '<a href="#" onclick="showAdminPanel(); return false;">Panel Admin</a>' : 
-                        ''
-                    }
-                    <a href="#" onclick="showOrders(); return false;">Mis Pedidos</a>
-                    <a href="#" onclick="showCart(); return false;">Mi Carrito</a>
-                    <a href="#" onclick="logout(); return false;">Cerrar Sesión</a>
-                </div>
-            </div>
-        `;
-
-        // Agregar event listener para cerrar el dropdown cuando se hace clic fuera
-        document.addEventListener('click', function(event) {
-            const dropdown = document.getElementById('userDropdown');
-            const userMenu = document.querySelector('.nav__user');
-            if (dropdown && !userMenu.contains(event.target)) {
-                dropdown.classList.remove('show');
-            }
-        });
-    } else {
-        userMenuContainer.innerHTML = `
-            <a href="#" onclick="showAuth(); return false;" id="loginButton">Iniciar Sesión</a>
-        `;
-    }
-}
-
-function toggleDropdown(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    const dropdown = document.getElementById('userDropdown');
-    if (dropdown) {
-        dropdown.classList.toggle('show');
-    }
-}
-
-// Funciones de almacenamiento local
-function loadCartFromStorage() {
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-        cart = JSON.parse(savedCart);
-        updateCartCount();
-    }
-}
-
-function saveCartToStorage() {
-    localStorage.setItem('cart', JSON.stringify(cart));
-}
-
-function loadUserFromStorage() {
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-        currentUser = JSON.parse(savedUser);
+        saveUserToStorage();
         updateUserMenu();
+        showNotification('Registro exitoso', 'success');
+        showHome();
+    } catch (error) {
+        console.error('Error de registro:', error);
+        showNotification('Error al registrarse: ' + error.message, 'error');
     }
-}
-
-function saveUserToStorage() {
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
 }
 
 function saveRegisteredUsers(users) {
-    localStorage.setItem('registeredUsers', JSON.stringify(users));
-}
-
-function getRegisteredUsers() {
-    const users = localStorage.getItem('registeredUsers');
-    return users ? JSON.parse(users) : [];
-}
-
-function loadOrdersFromStorage() {
-    const savedOrders = localStorage.getItem('orders');
-    if (savedOrders) {
-        orders = JSON.parse(savedOrders);
+    try {
+        if (!Array.isArray(users)) {
+            console.error('Intentando guardar algo que no es un array:', users);
+            return;
+        }
+        const usersJson = JSON.stringify(users);
+        localStorage.setItem('registeredUsers', usersJson);
+        console.log('Usuarios guardados correctamente:', users);
+        
+        // Verificar que se guardó correctamente
+        const savedData = localStorage.getItem('registeredUsers');
+        console.log('Verificación de datos guardados:', savedData);
+    } catch (error) {
+        console.error('Error al guardar usuarios:', error);
     }
-}
-
-function saveOrdersToStorage() {
-    localStorage.setItem('orders', JSON.stringify(orders));
 }
 
 // Funciones de administración
@@ -609,7 +592,7 @@ function showAdminPanel() {
     }
 
     hideAllSections();
-    adminPanel.classList.remove('hidden');
+    adminPanel.style.display = 'block';
     loadUsers();
 }
 
@@ -618,13 +601,13 @@ function showAdminTab(tab) {
     const adminContents = document.querySelectorAll('.admin__content');
 
     adminTabs.forEach(tabElement => tabElement.classList.remove('active'));
-    adminContents.forEach(content => content.classList.add('hidden'));
+    adminContents.forEach(content => content.style.display = 'none');
 
     const selectedTab = document.getElementById(`${tab}Tab`);
     if (selectedTab) selectedTab.classList.add('active');
 
     const selectedContent = document.getElementById(`${tab}Management`);
-    if (selectedContent) selectedContent.classList.remove('hidden');
+    if (selectedContent) selectedContent.style.display = 'block';
 
     if (tab === 'users') {
         loadUsers();
@@ -637,8 +620,8 @@ function showAdminTab(tab) {
 async function sendWelcomeEmail(email, name) {
     try {
         await emailjs.send(
-            "TU_SERVICE_ID",
-            "TU_TEMPLATE_ID",
+            "service_dvjlpx2",
+            "template_1njafyc",
             {
                 to_email: email,
                 to_name: name,
@@ -653,8 +636,8 @@ async function sendWelcomeEmail(email, name) {
 async function sendOrderConfirmationEmail(orderDetails) {
     try {
         await emailjs.send(
-            "TU_SERVICE_ID",
-            "TU_TEMPLATE_ID",
+            "service_dvjlpx2",
+            "template_1njafyc",
             {
                 to_email: currentUser.email,
                 to_name: currentUser.name,
@@ -666,7 +649,7 @@ async function sendOrderConfirmationEmail(orderDetails) {
     }
 }
 
-// Modificar funciones existentes para requerir autenticación
+// Modifico funciones anteriores para poder solicitar que tenga que iniciar sesion
 function addToCart() {
     if (!currentUser) {
         showNotification('Debes iniciar sesión para agregar productos al carrito', 'error');
@@ -694,6 +677,7 @@ function addToCart() {
     showNotification('Producto añadido al carrito', 'success');
 }
 
+//
 async function checkout() {
     if (!currentUser) {
         showNotification('Debes iniciar sesión para realizar la compra', 'error');
@@ -728,7 +712,6 @@ async function checkout() {
         showOrders();
     } catch (error) {
         console.error('Error al procesar la compra:', error);
-        showNotification('Error al procesar la compra', 'error');
     }
 }
 
@@ -761,7 +744,7 @@ async function loadCategories() {
         const response = await fetch(CATEGORIES_URL);
         const allCategories = await response.json();
         // Filtrar solo las primeras 5 categorías
-        const categories = allCategories.slice(0, 5);
+        const categories = allCategories.slice(0, 8);
         renderCategories(categories);
         setTimeout(() => {
             if (preloader) preloader.style.display = 'none';
@@ -897,7 +880,7 @@ async function showProductDetails(productId) {
         `;
         
         hideAllSections();
-        productDetailSection.classList.remove('hidden');
+        productDetailSection.style.display = 'block';
         
         // Añadir event listeners para las miniaturas
         document.querySelectorAll('.product-detail__thumbnail').forEach(thumbnail => {
@@ -925,7 +908,7 @@ function changeMainImage(imageUrl, thumbnailElement) {
 }
 
 function closeProductDetail() {
-    productDetailSection.classList.add('hidden');
+    productDetailSection.style.display = 'none';
     showProducts();
 }
 
@@ -1019,7 +1002,7 @@ function showOrders() {
         return;
     }
     hideAllSections();
-    document.getElementById('orders').classList.remove('hidden');
+    document.getElementById('orders').style.display = 'block';
     renderOrders();
 }
 
@@ -1129,7 +1112,7 @@ function saveOrder(orderItems, total) {
     return newOrder;
 }
 
-// Función para ocultar todas las secciones
+// Función para ocultar todas las secciones de la
 function hideAllSections() {
     const sections = [
         'hero',
@@ -1152,5 +1135,233 @@ function scrollToSection(sectionId) {
     const section = document.getElementById(sectionId);
     if (section) {
         section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// Función para cambiar entre pestañas de autenticación
+function switchAuthTab(tab) {
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const loginTab = document.querySelector('.auth__tab:nth-child(1)');
+    const registerTab = document.querySelector('.auth__tab:nth-child(2)');
+
+    if (tab === 'login') {
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
+        loginTab.classList.add('active');
+        registerTab.classList.remove('active');
+    } else {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        loginTab.classList.remove('active');
+        registerTab.classList.add('active');
+    }
+}
+
+// Función para manejar el registro
+function handleRegister(event) {
+    event.preventDefault();
+    
+    const name = document.getElementById('registerName').value;
+    const email = document.getElementById('registerEmail').value;
+    const password = document.getElementById('registerPassword').value;
+
+    // Validaciones básicas
+    if (!name || !email || !password) {
+        showNotification('Por favor, completa todos los campos', 'error');
+        return;
+    }
+
+    // Validar formato de email
+    if (!email.includes('@')) {
+        showNotification('Por favor, introduce un email válido', 'error');
+        return;
+    }
+
+    // Obtener usuarios existentes
+    const users = JSON.parse(localStorage.getItem('users')) || [];
+
+    // Verificar si el email ya está registrado
+    if (users.some(user => user.email === email)) {
+        showNotification('Este email ya está registrado', 'error');
+        return;
+    }
+
+    // Crear nuevo usuario
+    const newUser = {
+        id: Date.now(),
+        name,
+        email,
+        password,
+        role: 'user'
+    };
+
+    // Guardar el nuevo usuario
+    users.push(newUser);
+    localStorage.setItem('users', JSON.stringify(users));
+
+    // Iniciar sesión automáticamente
+    currentUser = newUser;
+    localStorage.setItem('currentUser', JSON.stringify(newUser));
+
+    // Actualizar la interfaz
+    updateUserMenu();
+    showNotification('Registro exitoso', 'success');
+
+    // Mostrar la página principal
+    showHome();
+}
+
+function logout() {
+    console.log('Cerrando sesión del usuario:', currentUser);
+    currentUser = null;
+    localStorage.removeItem('currentUser');
+    updateUserMenu();
+    showNotification('Sesión cerrada correctamente', 'success');
+    showHome();
+}
+
+function updateUserMenu() {
+    const userMenuContainer = document.getElementById('userMenuContainer');
+    if (!userMenuContainer) return;
+
+    if (currentUser) {
+        userMenuContainer.innerHTML = `
+            <div class="nav__user">
+                <span onclick="toggleDropdown(event)">${currentUser.name} ▼</span>
+                <div class="dropdown" id="userDropdown">
+                    ${currentUser.role === 'admin' ? 
+                        '<a href="#" onclick="showAdminPanel(); return false;">Panel Admin</a>' : 
+                        ''
+                    }
+                    <a href="#" onclick="showOrders(); return false;">Mis Pedidos</a>
+                    <a href="#" onclick="showCart(); return false;">Mi Carrito</a>
+                    <a href="#" onclick="logout(); return false;">Cerrar Sesión</a>
+                </div>
+            </div>
+        `;
+
+        // Agregar event listener para cerrar el dropdown cuando se hace clic fuera
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('userDropdown');
+            const userMenu = document.querySelector('.nav__user');
+            if (dropdown && !userMenu.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+    } else {
+        userMenuContainer.innerHTML = `
+            <a href="#" onclick="showAuth(); return false;" id="loginButton">Iniciar Sesión</a>
+        `;
+    }
+}
+
+function toggleDropdown(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const dropdown = document.getElementById('userDropdown');
+    if (dropdown) {
+        dropdown.classList.toggle('show');
+    }
+}
+
+// Funciones de almacenamiento local
+function loadCartFromStorage() {
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
+        cart = JSON.parse(savedCart);
+        updateCartCount();
+    }
+}
+
+function saveCartToStorage() {
+    localStorage.setItem('cart', JSON.stringify(cart));
+}
+
+function loadUserFromStorage() {
+    const savedUser = localStorage.getItem('currentUser');
+    if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        updateUserMenu();
+    }
+}
+
+function getRegisteredUsers() {
+    const users = localStorage.getItem('registeredUsers');
+    return users ? JSON.parse(users) : [];
+}
+
+function saveRegisteredUsers(users) {
+    localStorage.setItem('registeredUsers', JSON.stringify(users));
+}
+
+function saveUserToStorage() {
+    if (currentUser) {
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    } else {
+        localStorage.removeItem('currentUser');
+    }
+}
+
+function loadOrdersFromStorage() {
+    const savedOrders = localStorage.getItem('orders');
+    if (savedOrders) {
+        orders = JSON.parse(savedOrders);
+    }
+}
+
+function saveOrdersToStorage() {
+    localStorage.setItem('orders', JSON.stringify(orders));
+}
+
+// Funciones de administración
+async function loadUsers() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+
+    try {
+        const response = await fetch(USERS_URL);
+        const users = await response.json();
+        renderUsersList(users);
+    } catch (error) {
+        showNotification('Error al cargar usuarios', 'error');
+    }
+}
+
+function renderUsersList(users) {
+    const usersList = document.getElementById('usersList');
+    if (!usersList) return;
+    
+    usersList.innerHTML = users.map(user => `
+        <div class="admin__user-item">
+            <div class="admin__user-info">
+                <h3>${user.name}</h3>
+                <p>${user.email}</p>
+            </div>
+            <div class="admin__item-actions">
+                <button class="button" onclick="editUser(${user.id})">Editar</button>
+                <button class="button button--secondary" onclick="deleteUser(${user.id})">Eliminar</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function editUser(userId) {
+    // Implementar edición de usuario
+}
+
+async function deleteUser(userId) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este usuario?')) return;
+
+    try {
+        const response = await fetch(`${USERS_URL}/${userId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) throw new Error('Error al eliminar usuario');
+
+        showNotification('Usuario eliminado correctamente', 'success');
+        loadUsers();
+    } catch (error) {
+        showNotification('Error al eliminar usuario: ' + error.message, 'error');
     }
 }

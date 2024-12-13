@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NiJo - Tu tienda de moda</title>
+    <title>NiJo - Tu tienda de todo</title>
     <link rel="stylesheet" href="css/normalize.css">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,11 +26,10 @@
     <header class="header" id="header">
         <nav class="nav container">
             <div class="nav__logo">
-                <h1 onclick="showHome()" style="cursor: pointer;">NiJo</h1>
+                <h1 href="#" onclick="showHome()" style="cursor: pointer;">NiJo</h1>
+
             </div>
             <ul class="nav__menu">
-                <li><a href="#" onclick="showHome(); return false;">Inicio</a></li>
-                <li><a href="#" onclick="showCategories(); return false;">Categorías</a></li>
                 <li class="nav__user-menu" id="userMenuContainer">
                     <a href="#" onclick="showAuth(); return false;" id="loginButton">Iniciar Sesión</a>
                 </li>
@@ -78,6 +77,9 @@
                             </div>
                             <div class="form__group">
                                 <input type="password" id="registerPassword" required placeholder="Contraseña">
+                            </div>
+                            <div class="form__group">
+                                <input type="password" id="registerConfirmPassword" required placeholder="Confirmar Contraseña">
                             </div>
                             <button type="submit" class="button">Registrarse</button>
                         </form>
@@ -199,6 +201,60 @@
 
     <!-- Notification Container -->
     <div id="notificationContainer" class="notification-container"></div>
+ <!-- Pie de Página -->
+ <footer class="footer">
+    <div class="container">
+        <div class="footer__content">
+            <div class="footer__section">
+                <h4>Ayuda</h4>
+                <ul>
+                    <li><a href="#">Preguntas frecuentes</a></li>
+                    <li><a href="#">Envíos</a></li>
+                    <li><a href="#">Devoluciones</a></li>
+                    <li><a href="#">Contacto</a></li>
+                </ul>
+            </div>
+            <div class="footer__section">
+                <h4>Nosotros</h4>
+                <ul>
+                    <li><a href="#">Sobre NiJo</a></li>
+                    <li><a href="#">Nuestras tiendas</a></li>
+                    <li><a href="#">Trabaja con nosotros</a></li>
+                    <li><a href="#">Sostenibilidad</a></li>
+                </ul>
+            </div>
+            <div class="footer__section">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="#">Aviso legal</a></li>
+                    <li><a href="#">Política de privacidad</a></li>
+                    <li><a href="#">Cookies</a></li>
+                    <li><a href="#">Términos y condiciones</a></li>
+                </ul>
+            </div>
+            <div class="footer__section">
+                <h4>Métodos de pago</h4>
+                <div class="payment-methods">
+                    <i class="fab fa-cc-visa"></i>
+                    <i class="fab fa-cc-mastercard"></i>
+                    <i class="fab fa-cc-paypal"></i>
+                    <i class="fab fa-cc-apple-pay"></i>
+                </div>
+            </div>
+        </div>
+        <div class="footer__social">
+            <div class="social-media__icons">
+                <a href="#" class="social-icon"><i class="fab fa-facebook"></i></a>
+                <a href="#" class="social-icon"><i class="fab fa-instagram"></i></a>
+                <a href="#" class="social-icon"><i class="fab fa-twitter"></i></a>
+                <a href="#" class="social-icon"><i class="fab fa-pinterest"></i></a>
+            </div>
+        </div>
+        <div class="footer__bottom">
+            <p>&copy; 2024 NiJo. Todos los derechos reservados.</p>
+        </div>
+    </div>
+</footer>
 
     <script>
         function scrollToSection(sectionId) {
@@ -206,6 +262,9 @@
             section.scrollIntoView({ behavior: 'smooth' });
         }
     </script>
+
+
+
 
     <script src="js/main.js"></script>
 </body>
